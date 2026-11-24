@@ -1,0 +1,70 @@
+name: Publish password-protected board
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      PAGE_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
+      SOURCE_KEY: ${{ secrets.SOURCE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are set
+        run: |
+          missing=""
+          [ -n "$PAGE_PASSWORD" ] || missing="$missing PAGE_PASSWORD"
+          [ -n "$SOURCE_KEY" ] || missing="$missing SOURCE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Add these repository secrets (Settings > Secrets and variables > Actions):$missing"
+            exit 1
+          fi
+
+      - name: Unlock the board content
+        run: |
+          mkdir -p build
+          printf '%s' "$SOURCE_KEY" > key.txt
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in board.html.enc -out build/index.html -pass file:key.txt
+          shred -u key.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lock the page with the family password
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
+        run: |
+          npx --yes staticrypt@3.5.4 build/index.html -d dist --short --remember 30 \
+            --template-title "Paua Market Planner" \
+            --template-instructions "Enter the family password to open the board." \
+            --template-button "Open" \
+            --template-placeholder "Family password" \
+            --template-error "That password isn't right. Try again." \
+            --template-remember "Remember me on this device" \
+            --template-color-primary "#0a6a76" \
+            --template-color-secondary "#e8eeed"
+          touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
