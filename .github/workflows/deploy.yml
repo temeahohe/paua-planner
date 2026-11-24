@@ -24,7 +24,7 @@ jobs:
       PAGE_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
       SOURCE_KEY: ${{ secrets.SOURCE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check the secrets are set
         run: |
@@ -43,9 +43,9 @@ jobs:
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in board.html.enc -out build/index.html -pass file:key.txt
           shred -u key.txt
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Lock the page with the family password
         env:
@@ -63,7 +63,7 @@ jobs:
           touch dist/.nojekyll
 
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
       - id: deployment
