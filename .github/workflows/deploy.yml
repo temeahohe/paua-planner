@@ -66,5 +66,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+      # GitHub sometimes can't see the just-uploaded files straight away, so wait and retry once.
+      - name: Give GitHub a moment to register the upload
+        run: sleep 15
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait before retrying
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
